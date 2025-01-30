@@ -18,41 +18,58 @@ const Index = () => {
   const { toast } = useToast();
 
   const handleScanPlaylist = async () => {
-    setIsScanning(true);
-    // Simulated scan for demo
-    const mockSongs: Song[] = [
-      {
-        id: "1",
-        title: "Bohemian Rhapsody",
-        artist: "Queen",
-        albumArt: "https://via.placeholder.com/48",
-        matched: true,
-      },
-      {
-        id: "2",
-        title: "Stairway to Heaven",
-        artist: "Led Zeppelin",
-        albumArt: "https://via.placeholder.com/48",
-        matched: true,
-      },
-      {
-        id: "3",
-        title: "Hotel California",
-        artist: "Eagles",
-        albumArt: "https://via.placeholder.com/48",
-        matched: false,
-      },
-    ];
+    try {
+      setIsScanning(true);
+      // Get current tab URL
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (!tab.url?.includes('youtube.com/playlist')) {
+        toast({
+          title: "Error",
+          description: "Please navigate to a YouTube playlist page",
+        });
+        return;
+      }
 
-    // Simulate API delay
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-    setSongs(mockSongs);
-    setIsScanning(false);
-    
-    toast({
-      title: "Playlist Scanned",
-      description: "Found 3 songs from your YouTube playlist",
-    });
+      // For now, using mock data
+      const mockSongs: Song[] = [
+        {
+          id: "1",
+          title: "Bohemian Rhapsody",
+          artist: "Queen",
+          albumArt: "https://via.placeholder.com/48",
+          matched: true,
+        },
+        {
+          id: "2",
+          title: "Stairway to Heaven",
+          artist: "Led Zeppelin",
+          albumArt: "https://via.placeholder.com/48",
+          matched: true,
+        },
+        {
+          id: "3",
+          title: "Hotel California",
+          artist: "Eagles",
+          albumArt: "https://via.placeholder.com/48",
+          matched: false,
+        },
+      ];
+
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+      setSongs(mockSongs);
+      
+      toast({
+        title: "Playlist Scanned",
+        description: "Found 3 songs from your YouTube playlist",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to scan playlist",
+      });
+    } finally {
+      setIsScanning(false);
+    }
   };
 
   const handleCreatePlaylist = async () => {
@@ -60,17 +77,16 @@ const Index = () => {
       title: "Creating Playlist",
       description: "Your Spotify playlist is being created...",
     });
-    // Add actual Spotify API integration here
   };
 
   return (
-    <div className="min-h-screen bg-spotify-dark p-6">
-      <div className="max-w-md mx-auto space-y-6">
+    <div className="w-[400px] h-[600px] bg-spotify-dark p-4 overflow-y-auto">
+      <div className="space-y-4">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-white mb-2">
+          <h1 className="text-xl font-bold text-white mb-2">
             YouTube to Spotify
           </h1>
-          <p className="text-gray-400">
+          <p className="text-gray-400 text-sm">
             Convert your YouTube playlist to Spotify in one click
           </p>
         </div>
