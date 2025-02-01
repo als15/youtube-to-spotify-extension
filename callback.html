@@ -1,17 +1,50 @@
+<!-- callback.html -->
 <!DOCTYPE html>
-<html lang="en">
+<html>
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>tune-migrate-fairy</title>
-    <meta name="description" content="Lovable Generated Project" />
-    <meta name="author" content="Lovable" />
-    <meta property="og:image" content="/og-image.png" />
+    <title>Spotify Auth Callback</title>
   </head>
-
   <body>
-    <div id="root"></div>
-    <script src="https://cdn.gpteng.co/gptengineer.js" type="module"></script>
-    <h1>hi there</h1>
+    <h1>Spotify Auth Callback</h1>
+    <p id="status">Processing authentication…</p>
+
+    <script>
+      // 1. Extract the URL hash portion (everything after the #)
+      const hashString = window.location.hash.substring(1)
+      const params = new URLSearchParams(hashString)
+
+      // 2. Parse token-related parameters
+      const accessToken = params.get('access_token')
+      const tokenType = params.get('token_type')
+      const expiresIn = params.get('expires_in')
+
+      // 3. Display them on the page for debugging
+      const statusEl = document.getElementById('status')
+
+      if (!accessToken) {
+        statusEl.textContent = 'No access token found in URL hash.'
+      } else {
+        statusEl.innerHTML = `
+        <p><strong>Access Token:</strong> ${accessToken}</p>
+        <p><strong>Token Type:</strong> ${tokenType}</p>
+        <p><strong>Expires In:</strong> ${expiresIn} seconds</p>
+      `
+      }
+
+      // 4. (Optional) Send the token back to your extension
+      // ----------------------------------------------------
+      // If you need to pass this token directly to the extension without user copy/paste:
+      //
+      // chrome.runtime.sendMessage({ action: 'spotifyToken', token: accessToken }, (response) => {
+      //   console.log('Extension responded:', response);
+      // });
+      //
+      // But note: 'chrome' APIs are typically not accessible from a normal webpage on GitHub Pages
+      // unless you have a content script injected or a more advanced approach (postMessage).
+      //
+      // 5. (Optional) auto-close the tab after a delay
+      // setTimeout(() => { window.close(); }, 3000);
+    </script>
   </body>
 </html>
