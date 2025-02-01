@@ -9,7 +9,7 @@ let accessToken = null // Will store the Spotify access token
 // Function to initiate the authentication process
 function authenticateWithSpotify() {
   const clientId = '919c02efd25949419a943b749d5fd5ed' // Replace with your actual Client ID
-  const redirectUri = 'chrome-extension://miplddhmffnopdbdminoddijjaeablfg/*'
+  const redirectUri = 'https://als15.github.io/youtube-to-spotify-extension/callback.html'
   const scopes = ['playlist-modify-public', 'playlist-modify-private', 'user-library-modify', 'user-library-read']
 
   const authUrl = `https://accounts.spotify.com/authorize?client_id=${clientId}
