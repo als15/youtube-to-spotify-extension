@@ -1,0 +1,13 @@
+{
+  "name": "YouTube to Spotify",
+  "version": "1.0",
+  "description": "Save YouTube songs directly to Spotify playlists and favorites.",
+  "manifest_version": 3,
+  "permissions": ["storage", "activeTab", "scripting"],
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "background": {
+    "service_worker": "background.js"
+  }
+}

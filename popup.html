@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>YouTube to Spotify</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="container">
+      <h2>YouTube to Spotify</h2>
+      <input type="text" id="youtubeLink" placeholder="Paste YouTube link here" />
+      <select id="spotifyPlaylists">
+        <option value="">Select a Spotify playlist...</option>
+        <!-- Dynamically populated by Spotify API -->
+      </select>
+      <button id="addToPlaylistBtn">Add to Playlist</button>
+      <button id="favoriteBtn">Mark as Favorite</button>
+    </div>
+    <script src="popup.js"></script>
+  </body>
+</html>
