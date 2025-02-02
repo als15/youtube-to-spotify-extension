@@ -1,130 +1,90 @@
-/****************************
- *  PKCE HELPER FUNCTIONS
- ****************************/
+/*****************************************
+ * PKCE HELPER FUNCTIONS
+ *****************************************/
 function generateRandomString(length) {
-  let text = ''
-  const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~'
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~'
+  let str = ''
   for (let i = 0; i < length; i++) {
-    text += possible.charAt(Math.floor(Math.random() * possible.length))
+    str += chars.charAt(Math.floor(Math.random() * chars.length))
   }
-  return text
+  return str
 }
 
-// base64-urlencode (RFC 4648 §5)
-function base64URLEncode(str) {
-  return btoa(String.fromCharCode.apply(null, new Uint8Array(str)))
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=+$/, '')
-}
-
-// SHA-256 hashing
-async function sha256(plain) {
+async function sha256ToBase64url(plain) {
   const encoder = new TextEncoder()
   const data = encoder.encode(plain)
-  return await crypto.subtle.digest('SHA-256', data)
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data)
+
+  // Convert ArrayBuffer to string
+  const byteArray = Array.from(new Uint8Array(hashBuffer))
+  let base64String = btoa(String.fromCharCode(...byteArray))
+
+  // Base64-url encode
+  return base64String.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
 }
 
-/**
- * generatePKCECodes - returns { codeVerifier, codeChallenge }
- */
 async function generatePKCECodes() {
   const codeVerifier = generateRandomString(64)
-  const hashed = await sha256(codeVerifier)
-  const codeChallenge = base64URLEncode(hashed)
+  const codeChallenge = await sha256ToBase64url(codeVerifier)
   return { codeVerifier, codeChallenge }
 }
 
-/****************************
- *  MAIN EXTENSION LOGIC
- ****************************/
-
-// Replace this with your actual client ID and redirect URI
-const CLIENT_ID = '919c02efd25949419a943b749d5fd5ed'
-const REDIRECT_URI = 'https://als15.github.io/youtube-to-spotify-extension/callback.html'
-// or e.g. "https://myapp.vercel.app/callback.html"
-
+/*****************************************
+ * MAIN POPUP LOGIC
+ *****************************************/
 document.addEventListener('DOMContentLoaded', () => {
   const loginBtn = document.getElementById('loginBtn')
   const profileBtn = document.getElementById('profileBtn')
-  const profileResult = document.getElementById('profileResult')
+  const statusDiv = document.getElementById('status')
 
-  loginBtn.addEventListener('click', () => {
-    // Step 1: Generate PKCE codeVerifier and codeChallenge
-    generatePKCECodes().then(({ codeVerifier, codeChallenge }) => {
-      // Step 2: Store the codeVerifier in chrome.storage for retrieval after redirect
-      chrome.storage.local.set({ spotify_code_verifier: codeVerifier }, () => {
-        console.log('Stored codeVerifier in chrome.storage.')
+  loginBtn.addEventListener('click', async () => {
+    // 1. Generate PKCE codeVerifier & codeChallenge
+    const { codeVerifier, codeChallenge } = await generatePKCECodes()
 
-        // Step 3: Build the Spotify /authorize URL
-        const state = generateRandomString(16) // optional, can store to verify
-        const scope = ['playlist-modify-public', 'playlist-modify-private', 'user-library-modify', 'user-library-read'].join(' ')
-
-        const authUrl = new URL('https://accounts.spotify.com/authorize')
-        authUrl.searchParams.append('client_id', CLIENT_ID)
-        authUrl.searchParams.append('response_type', 'code')
-        authUrl.searchParams.append('redirect_uri', REDIRECT_URI)
-        authUrl.searchParams.append('code_challenge_method', 'S256')
-        authUrl.searchParams.append('code_challenge', codeChallenge)
-        authUrl.searchParams.append('scope', scope)
-        authUrl.searchParams.append('state', state) // optional
-
-        // Step 4: Open the authUrl in a new window or tab
-        window.open(authUrl.toString(), 'SpotifyAuth', 'width=600,height=800')
-      })
+    // 2. Store codeVerifier in chrome.storage to retrieve in background.js
+    chrome.storage.local.set({ spotify_code_verifier: codeVerifier }, () => {
+      console.log('PKCE codeVerifier stored in chrome.storage.')
     })
+
+    // 3. Build the Spotify /authorize URL
+    const clientId = '919c02efd25949419a943b749d5fd5ed' // Replace with your real client ID
+    const redirectUri = 'https://example.com/callback' // Must match in Spotify Dashboard
+    const scopes = 'user-read-private user-read-email' // Example scopes; add more if needed
+
+    const authUrl = new URL('https://accounts.spotify.com/authorize')
+    authUrl.searchParams.append('client_id', clientId)
+    authUrl.searchParams.append('response_type', 'code')
+    authUrl.searchParams.append('redirect_uri', redirectUri)
+    authUrl.searchParams.append('code_challenge_method', 'S256')
+    authUrl.searchParams.append('code_challenge', codeChallenge)
+    authUrl.searchParams.append('scope', scopes)
+
+    // 4. Open in a new tab
+    chrome.tabs.create({ url: authUrl.toString() })
   })
 
-  // Listen for postMessage from callback.html
-  window.addEventListener('message', event => {
-    if (event.data?.type === 'SPOTIFY_TOKEN') {
-      const { access_token, refresh_token, expires_in } = event.data.data
-      console.log('Received tokens from callback page:', {
-        access_token,
-        refresh_token,
-        expires_in
-      })
-
-      // Step 5: Store tokens in chrome.storage
-      chrome.storage.local.set(
-        {
-          spotify_access_token: access_token,
-          spotify_refresh_token: refresh_token,
-          spotify_expires_in: expires_in,
-          spotify_obtained_at: Date.now()
-        },
-        () => {
-          alert('Spotify authentication succeeded! Access token stored.')
-        }
-      )
-    }
-  })
-
-  // Example: Use the stored token to get user profile from Spotify
-  profileBtn.addEventListener('click', () => {
-    chrome.storage.local.get(['spotify_access_token', 'spotify_refresh_token', 'spotify_expires_in', 'spotify_obtained_at'], items => {
-      const { spotify_access_token } = items
-      if (!spotify_access_token) {
-        profileResult.textContent = 'No access token found. Please log in first.'
+  // Example: fetch user profile from Spotify
+  profileBtn.addEventListener('click', async () => {
+    chrome.storage.local.get('spotify_access_token', async items => {
+      const token = items.spotify_access_token
+      if (!token) {
+        statusDiv.textContent = 'No access token found. Please log in first.'
         return
       }
 
-      // Example: Call https://api.spotify.com/v1/me
-      fetch('https://api.spotify.com/v1/me', {
-        headers: {
-          Authorization: `Bearer ${spotify_access_token}`
+      try {
+        const resp = await fetch('https://api.spotify.com/v1/me', {
+          headers: { Authorization: `Bearer ${token}` }
+        })
+        if (!resp.ok) {
+          const errText = await resp.text()
+          throw new Error(`Error fetching profile: ${errText}`)
         }
-      })
-        .then(res => {
-          if (!res.ok) throw new Error('Failed to fetch profile: ' + res.status)
-          return res.json()
-        })
-        .then(data => {
-          profileResult.textContent = `User Profile:\n${JSON.stringify(data, null, 2)}`
-        })
-        .catch(err => {
-          profileResult.textContent = `Error: ${err.message}`
-        })
+        const profile = await resp.json()
+        statusDiv.textContent = `User Profile:\n${JSON.stringify(profile, null, 2)}`
+      } catch (err) {
+        statusDiv.textContent = `Error: ${err.message}`
+      }
     })
   })
 })

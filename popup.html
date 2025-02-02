@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <meta charset="UTF-8" />
-    <title>Spotify PKCE Demo</title>
+    <meta charset="utf-8" />
+    <title>Spotify PKCE (Client Only)</title>
     <style>
       body {
         font-family: Arial, sans-serif;
@@ -10,21 +10,18 @@
       }
       button {
         margin-right: 0.5rem;
-        margin-bottom: 0.5rem;
       }
-      #profileResult {
+      #status {
         margin-top: 1rem;
-        font-size: 0.9rem;
         white-space: pre-wrap;
       }
     </style>
   </head>
   <body>
-    <h2>Spotify PKCE Demo</h2>
+    <h2>Spotify PKCE (Client Only)</h2>
     <button id="loginBtn">Login with Spotify</button>
     <button id="profileBtn">Get Profile</button>
-    <div id="profileResult"></div>
-
+    <div id="status"></div>
     <script src="popup.js"></script>
   </body>
 </html>

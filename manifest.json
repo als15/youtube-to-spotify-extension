@@ -1,9 +1,12 @@
 {
-  "name": "Spotify PKCE Demo",
+  "name": "Spotify PKCE Client-Only",
+  "description": "Chrome extension for Spotify OAuth (Authorization Code Flow with PKCE), purely client-side.",
   "version": "1.0",
-  "description": "A Chrome extension that demonstrates Spotify Authorization Code Flow with PKCE.",
   "manifest_version": 3,
-  "permissions": ["storage", "tabs"],
+  "permissions": ["tabs", "storage"],
+  "background": {
+    "service_worker": "background.js"
+  },
   "action": {
     "default_popup": "popup.html"
   }
