@@ -3,7 +3,7 @@
   "description": "Save YouTube songs to your Spotify playlists",
   "version": "1.0",
   "manifest_version": 3,
-  "permissions": ["tabs", "storage", "activeTab"],
+  "permissions": ["tabs", "storage", "activeTab", "scripting"],
   "host_permissions": ["https://www.youtube.com/*", "https://youtu.be/*"],
   "background": {
     "service_worker": "background.js"
