@@ -2,25 +2,42 @@
 <html>
   <head>
     <meta charset="utf-8" />
-    <title>Spotify PKCE (Client Only)</title>
+    <title>YouTube to Spotify Saver</title>
     <style>
       body {
         font-family: Arial, sans-serif;
         margin: 1rem;
+        width: 400px;
       }
       button {
         margin-right: 0.5rem;
+        margin-bottom: 0.5rem;
       }
       #status {
         margin-top: 1rem;
         white-space: pre-wrap;
       }
+      .search-result {
+        margin: 10px 0;
+        padding: 10px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+      }
+      .hidden {
+        display: none;
+      }
     </style>
   </head>
   <body>
-    <h2>Spotify PKCE (Client Only)</h2>
+    <h2>YouTube to Spotify Saver</h2>
     <button id="loginBtn">Login with Spotify</button>
-    <button id="profileBtn">Get Profile</button>
+    <button id="getCurrentSong" class="hidden">Get Current Song</button>
+    <div id="songInfo" class="hidden">
+      <h3>Current Song:</h3>
+      <p id="songTitle"></p>
+      <div id="searchResults"></div>
+      <button id="saveToSpotify" class="hidden">Save to Spotify</button>
+    </div>
     <div id="status"></div>
     <script src="popup.js"></script>
   </body>
