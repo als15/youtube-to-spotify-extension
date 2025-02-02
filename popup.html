@@ -2,46 +2,223 @@
 <html>
   <head>
     <meta charset="utf-8" />
-    <title>YouTube to Spotify Saver</title>
+    <title>YouTube to Spotify</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
     <style>
+      /* Base styles */
       body {
-        font-family: Arial, sans-serif;
-        margin: 1rem;
-        width: 400px;
+        width: 320px;
+        background-color: #121212;
+        color: white;
+        font-family: 'Inter', sans-serif;
+        margin: 0;
+        padding: 16px;
       }
-      button {
-        margin-right: 0.5rem;
-        margin-bottom: 0.5rem;
+
+      /* Container */
+      .container {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
       }
-      #status {
-        margin-top: 1rem;
-        white-space: pre-wrap;
+
+      /* Buttons */
+      .btn {
+        width: 100%;
+        background-color: #1db954;
+        color: white;
+        border: none;
+        border-radius: 24px;
+        padding: 12px 24px;
+        font-size: 14px;
+        font-weight: 500;
+        letter-spacing: 0.5px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        transition: all 0.3s ease;
       }
-      .search-result {
-        margin: 10px 0;
-        padding: 10px;
-        border: 1px solid #ddd;
+
+      .btn:hover {
+        background-color: #1ed760;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+      }
+
+      .btn:disabled {
+        background-color: #404040;
+        cursor: not-allowed;
+        transform: none;
+      }
+
+      /* Icons */
+      .icon {
+        width: 20px;
+        height: 20px;
+        fill: currentColor;
+      }
+
+      /* Song Info */
+      .song-info {
+        background-color: #282828;
+        border-radius: 8px;
+        padding: 16px;
+        animation: slideDown 0.3s ease;
+      }
+
+      .song-info.visible {
+        display: block;
+      }
+
+      /* Playlist Section */
+      .playlist-section {
+        animation: slideDown 0.3s ease;
+      }
+
+      .playlist-section.visible {
+        display: block;
+      }
+
+      /* Select */
+      select {
+        width: 100%;
+        padding: 12px;
+        background-color: #282828;
+        color: white;
+        border: 1px solid #404040;
         border-radius: 4px;
+        font-size: 14px;
+        margin-bottom: 16px;
+        cursor: pointer;
+        appearance: none;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 12px center;
+        background-size: 16px;
       }
-      .hidden {
+
+      select:focus {
+        outline: none;
+        border-color: #1db954;
+      }
+
+      /* Save Button */
+      .save-button {
+        width: 100%;
+        background-color: #1db954;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        padding: 12px;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.3s ease;
+      }
+
+      .save-button:hover {
+        background-color: #1ed760;
+      }
+
+      .save-button:disabled {
+        background-color: #404040;
+        cursor: not-allowed;
+      }
+
+      /* Status */
+      .status {
+        font-size: 14px;
+        text-align: center;
+        min-height: 32px;
+        color: #b3b3b3;
+      }
+
+      .status.success {
+        color: #1db954;
+      }
+
+      .status.error {
+        color: #ff4444;
+      }
+
+      /* Spinner */
+      .spinner {
+        width: 20px;
+        height: 20px;
+        border: 2px solid #ffffff;
+        border-top: 2px solid transparent;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
         display: none;
+      }
+
+      .spinner.visible {
+        display: inline-block;
+      }
+
+      /* Animations */
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      @keyframes slideDown {
+        from {
+          opacity: 0;
+          transform: translateY(-10px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      .hidden {
+        display: none !important;
       }
     </style>
   </head>
   <body>
-    <h2>YouTube to Spotify Saver</h2>
-    <button id="loginBtn">Login with Spotify</button>
-    <button id="getCurrentSong" class="hidden">Get Current Song</button>
-    <div id="songInfo" class="hidden">
-      <h3>
-        Current Song:
-        <p id="songTitle"></p>
-      </h3>
+    <div class="container">
+      <!-- Login Button -->
+      <button id="loginBtn" class="btn">
+        <svg class="icon" viewBox="0 0 24 24">
+          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-2-5.5l6-4.5-6-4.5v9z" />
+        </svg>
+        <span>Login with Spotify</span>
+      </button>
 
-      <div id="searchResults"></div>
-      <button id="saveToSpotify" class="hidden">Save to Spotify</button>
+      <!-- Get Current Song Button -->
+      <button id="getCurrentSong" class="btn hidden">
+        <svg class="icon" viewBox="0 0 24 24">
+          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z" />
+        </svg>
+        <span>Get Current Song</span>
+        <div class="spinner" id="spinner"></div>
+      </button>
+
+      <!-- Song Info -->
+      <div id="songInfo" class="song-info hidden">
+        <div class="flex items-center gap-2">
+          <svg class="icon" viewBox="0 0 24 24">
+            <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z" />
+          </svg>
+          <span id="songTitle" class="text-base font-medium"></span>
+        </div>
+      </div>
+
+      <!-- Playlist Section -->
+      <div id="playlistSection" class="playlist-section hidden">
+        <select id="playlistSelect"></select>
+        <button id="saveButton" class="save-button">Save to Playlist</button>
+      </div>
+
+      <!-- Status -->
+      <div id="status" class="status"></div>
     </div>
-    <div id="status"></div>
     <script src="popup.js"></script>
   </body>
 </html>

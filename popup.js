@@ -258,8 +258,13 @@ document.addEventListener('DOMContentLoaded', () => {
   const getCurrentSongBtn = document.getElementById('getCurrentSong')
   const songInfo = document.getElementById('songInfo')
   const songTitle = document.getElementById('songTitle')
-  const searchResults = document.getElementById('searchResults')
+  const playlistSection = document.getElementById('playlistSection')
+  const playlistSelect = document.getElementById('playlistSelect')
+  const saveButton = document.getElementById('saveButton')
   const statusDiv = document.getElementById('status')
+  const spinner = document.getElementById('spinner')
+
+  let currentTrackUri = null
 
   // Check if we're logged in
   chrome.storage.local.get('spotify_access_token', items => {
@@ -269,77 +274,83 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   })
 
-  // Keep the login button listener the same...
+  loginBtn.addEventListener('click', async () => {
+    const { codeVerifier, codeChallenge } = await generatePKCECodes()
+    chrome.storage.local.set({ spotify_code_verifier: codeVerifier })
+
+    const clientId = '919c02efd25949419a943b749d5fd5ed'
+    const redirectUri = 'https://als15.github.io/youtube-to-spotify-extension/callback'
+    const scopes = 'user-read-private user-read-email playlist-modify-public playlist-modify-private playlist-read-private'
+
+    const authUrl = new URL('https://accounts.spotify.com/authorize')
+    authUrl.searchParams.append('client_id', clientId)
+    authUrl.searchParams.append('response_type', 'code')
+    authUrl.searchParams.append('redirect_uri', redirectUri)
+    authUrl.searchParams.append('code_challenge_method', 'S256')
+    authUrl.searchParams.append('code_challenge', codeChallenge)
+    authUrl.searchParams.append('scope', scopes)
+
+    chrome.tabs.create({ url: authUrl.toString() })
+  })
+
+  function showLoading() {
+    spinner.classList.remove('hidden')
+    getCurrentSongBtn.disabled = true
+  }
+
+  function hideLoading() {
+    spinner.classList.add('hidden')
+    getCurrentSongBtn.disabled = false
+  }
+
+  function showStatus(message, type = 'normal') {
+    statusDiv.textContent = message
+    switch (type) {
+      case 'success':
+        statusDiv.className = 'text-sm text-center min-h-8 text-[#1DB954]'
+        break
+      case 'error':
+        statusDiv.className = 'text-sm text-center min-h-8 text-red-500'
+        break
+      default:
+        statusDiv.className = 'text-sm text-center min-h-8 text-gray-400'
+    }
+    setTimeout(() => {
+      statusDiv.textContent = ''
+      statusDiv.className = 'text-sm text-center min-h-8 text-gray-400'
+    }, 3000)
+  }
 
   getCurrentSongBtn.addEventListener('click', async () => {
     try {
-      // Get current tab
+      showLoading()
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
 
       if (!tab.url.includes('youtube.com/watch')) {
         throw new Error('Not a YouTube video page')
       }
 
-      // Get video title and channel name using content script
-      const result = await chrome.scripting.executeScript({
-        target: { tabId: tab.id },
-        function: () => {
-          const videoTitle = document.querySelector('h1.ytd-video-primary-info-renderer')?.textContent || ''
-          const channelName = document.querySelector('ytd-channel-name yt-formatted-string a')?.textContent || ''
-          return { videoTitle, channelName }
-        }
-      })
-
-      const { videoTitle, channelName } = result[0].result
+      const { videoTitle, channelName } = await getYouTubeInfo(tab)
       const songInfo = extractSongInfo(videoTitle, channelName)
-
-      // Display extracted info
-      songTitle.textContent = `${songInfo.artist ? songInfo.artist + ' - ' : ''}${songInfo.song}`
-      document.getElementById('songInfo').classList.remove('hidden')
 
       const searchQuery = songInfo.artist ? `${songInfo.artist} ${songInfo.song}` : songInfo.song
 
-      const bestMatch = await searchSpotify(searchQuery, songInfo)
-
-      // Clear previous results
-      searchResults.innerHTML = ''
-
-      if (bestMatch) {
-        const div = document.createElement('div')
-        div.className = 'search-result'
-
-        const titleP = document.createElement('p')
-        titleP.innerHTML = `<strong>${bestMatch.name}</strong>`
-
-        const artistP = document.createElement('p')
-        artistP.textContent = `by ${bestMatch.artists.map(a => a.name).join(', ')}`
-
-        const addButton = document.createElement('button')
-        addButton.textContent = 'Add to Playlist'
-        addButton.dataset.trackUri = bestMatch.uri
-        addButton.addEventListener('click', async e => {
-          const trackUri = e.target.dataset.trackUri
-          await showPlaylistSelector(trackUri)
-        })
-
-        div.appendChild(titleP)
-        div.appendChild(artistP)
-        div.appendChild(addButton)
-        searchResults.appendChild(div)
-      } else {
-        statusDiv.textContent = 'Could not find a good match on Spotify for this song.'
+      const token = await checkAndRefreshToken()
+      if (!token) {
+        throw new Error('Not authenticated with Spotify')
       }
-    } catch (error) {
-      statusDiv.textContent = `Error: ${error.message}`
-    }
-  })
 
-  async function showPlaylistSelector(trackUri, token) {
-    try {
-      const playlists = await getUserPlaylists(token)
+      const match = await searchSpotify(searchQuery, songInfo)
 
-      // Create playlist selection UI
-      const playlistSelect = document.createElement('select')
+      if (!match) {
+        throw new Error('Could not find this song on Spotify')
+      }
+
+      songTitle.textContent = `${match.artists[0].name} - ${match.name}`
+      document.getElementById('songInfo').classList.remove('hidden')
+
+      const playlists = await getUserPlaylists()
+      playlistSelect.innerHTML = ''
       playlists.items.forEach(playlist => {
         const option = document.createElement('option')
         option.value = playlist.id
@@ -347,25 +358,54 @@ document.addEventListener('DOMContentLoaded', () => {
         playlistSelect.appendChild(option)
       })
 
-      // Add confirm button
-      const confirmBtn = document.createElement('button')
-      confirmBtn.textContent = 'Confirm'
+      playlistSection.classList.remove('hidden')
+      currentTrackUri = match.uri
 
-      confirmBtn.addEventListener('click', async () => {
-        try {
-          await addToPlaylist(playlistSelect.value, trackUri, token)
-          statusDiv.textContent = 'Song added to playlist successfully!'
-        } catch (error) {
-          statusDiv.textContent = `Error adding to playlist: ${error.message}`
-        }
-      })
-
-      // Clear and update status div
-      statusDiv.innerHTML = ''
-      statusDiv.appendChild(playlistSelect)
-      statusDiv.appendChild(confirmBtn)
+      hideLoading()
     } catch (error) {
-      statusDiv.textContent = `Error: ${error.message}`
+      hideLoading()
+      showStatus(error.message, 'error')
     }
+  })
+
+  saveButton.addEventListener('click', async () => {
+    if (!currentTrackUri || !playlistSelect.value) return
+
+    try {
+      saveButton.disabled = true
+      saveButton.textContent = 'Saving...'
+
+      const token = await checkAndRefreshToken()
+      if (!token) {
+        throw new Error('Not authenticated with Spotify')
+      }
+
+      await addToPlaylist(playlistSelect.value, currentTrackUri, token)
+      showStatus('Added to playlist!', 'success')
+
+      setTimeout(() => {
+        songInfo.classList.add('hidden')
+        playlistSection.classList.add('hidden')
+        currentTrackUri = null
+        saveButton.textContent = 'Save to Playlist'
+      }, 2000)
+    } catch (error) {
+      showStatus(error.message, 'error')
+    } finally {
+      saveButton.disabled = false
+      saveButton.textContent = 'Save to Playlist'
+    }
+  })
+
+  async function getYouTubeInfo(tab) {
+    const result = await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      function: () => {
+        const videoTitle = document.querySelector('h1.ytd-video-primary-info-renderer')?.textContent || ''
+        const channelName = document.querySelector('ytd-channel-name yt-formatted-string a')?.textContent || ''
+        return { videoTitle, channelName }
+      }
+    })
+    return result[0].result
   }
 })
