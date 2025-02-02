@@ -40,8 +40,8 @@ async function generatePKCECodes() {
  ****************************/
 
 // Replace this with your actual client ID and redirect URI
-const CLIENT_ID = 'YOUR_SPOTIFY_CLIENT_ID'
-const REDIRECT_URI = 'https://<your-username>.github.io/my-spotify-callback/callback.html'
+const CLIENT_ID = '919c02efd25949419a943b749d5fd5ed'
+const REDIRECT_URI = 'https://als15.github.io/youtube-to-spotify-extension/callback.html'
 // or e.g. "https://myapp.vercel.app/callback.html"
 
 document.addEventListener('DOMContentLoaded', () => {
