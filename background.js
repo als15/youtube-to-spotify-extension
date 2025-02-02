@@ -2,11 +2,13 @@
 
 // 1. Intercept tab updates
 chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
-  // Wait until the URL changes and includes "https://example.com/callback"
-  if (changeInfo.url && changeInfo.url.startsWith('https://example.com/callback')) {
+  if (changeInfo.url && changeInfo.url.startsWith('https://als15.github.io/youtube-to-spotify-extension/callback')) {
     const url = new URL(changeInfo.url)
     const code = url.searchParams.get('code')
     const error = url.searchParams.get('error')
+
+    console.log('Authorization code:', code)
+    console.log('Error (if any):', error)
 
     // Immediately remove the tab so the user doesn't see an error page
     chrome.tabs.remove(tabId)
@@ -57,8 +59,12 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
 
 // A helper to call POST /api/token with code + codeVerifier
 async function exchangeCodeForTokens(code, codeVerifier) {
+  console.log('Exchanging code for tokens...')
+  console.log('Code:', code)
+  console.log('Code Verifier:', codeVerifier)
+
   const clientId = '919c02efd25949419a943b749d5fd5ed' // same as used in popup
-  const redirectUri = 'https://als15.github.io/youtube-to-spotify-extension/callback.html'
+  const redirectUri = 'https://als15.github.io/youtube-to-spotify-extension/callback'
 
   // Build request body
   const body = new URLSearchParams()
@@ -74,10 +80,14 @@ async function exchangeCodeForTokens(code, codeVerifier) {
     body: body.toString()
   })
 
+  console.log('Token response status:', response.status)
+
   if (!response.ok) {
     const errorText = await response.text()
     throw new Error('Token request failed: ' + errorText)
   }
 
-  return await response.json() // e.g. { access_token, token_type, scope, expires_in, refresh_token }
+  const tokens = await response.json()
+  console.log('Tokens received:', { ...tokens, access_token: '***' })
+  return tokens
 }

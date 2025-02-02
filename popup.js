@@ -48,7 +48,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 3. Build the Spotify /authorize URL
     const clientId = '919c02efd25949419a943b749d5fd5ed' // Replace with your real client ID
-    const redirectUri = 'https://als15.github.io/youtube-to-spotify-extension/callback.html' // Must match in Spotify Dashboard
+    const redirectUri = 'https://als15.github.io/youtube-to-spotify-extension/callback' // Must match in Spotify Dashboard
     const scopes = 'user-read-private user-read-email' // Example scopes; add more if needed
 
     const authUrl = new URL('https://accounts.spotify.com/authorize')

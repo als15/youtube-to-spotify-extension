@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Authentication Callback</title>
+  </head>
+  <body>
+    <h1>Authentication in progress...</h1>
+    <p>This window will close automatically.</p>
+    <script>
+      // Get the authorization code from URL
+      const urlParams = new URLSearchParams(window.location.search)
+      const code = urlParams.get('code')
+      const error = urlParams.get('error')
+
+      if (code) {
+        // Success case - the code will be processed by background.js
+        document.body.innerHTML += '<p>Authentication successful! You can close this window.</p>'
+      } else if (error) {
+        // Error case
+        document.body.innerHTML += `<p>Error: ${error}</p>`
+      }
+    </script>
+  </body>
+</html>
