@@ -1,162 +1,130 @@
-// popup.js
-
-// DOM Elements
-const youtubeLinkInput = document.getElementById('youtubeLink')
-const playlistsDropdown = document.getElementById('spotifyPlaylists')
-const addToPlaylistBtn = document.getElementById('addToPlaylistBtn')
-const favoriteBtn = document.getElementById('favoriteBtn')
-
-// We'll store the token here after receiving it from background.js
-let accessToken = null
-
-// 1. Request authentication if no token is available
-// In a real scenario, you would check chrome.storage or message background.js
-// to see if an accessToken was already saved. For simplicity:
-function checkAuthentication() {
-  // Request the background page for the current accessToken
-  chrome.runtime.sendMessage({ action: 'getToken' }, response => {
-    if (response && response.token) {
-      accessToken = response.token
-      // If we have a token, let's load the user's playlists
-      fetchPlaylists()
-    } else {
-      // Ask user to authenticate
-      if (confirm('You need to authenticate with Spotify. Proceed?')) {
-        chrome.runtime.sendMessage({ action: 'authenticate' })
-      }
-    }
-  })
-}
-
-// 2. Fetch user playlists
-function fetchPlaylists() {
-  fetch('https://api.spotify.com/v1/me/playlists?limit=50', {
-    headers: {
-      Authorization: `Bearer ${accessToken}`
-    }
-  })
-    .then(response => response.json())
-    .then(data => {
-      // Populate dropdown
-      data.items.forEach(playlist => {
-        const option = document.createElement('option')
-        option.value = playlist.id
-        option.textContent = playlist.name
-        playlistsDropdown.appendChild(option)
-      })
-    })
-    .catch(err => console.error('Error fetching playlists:', err))
-}
-
-// 3. Extract a search term from the YouTube link
-// Real implementation might use YouTube Data API to get the title.
-// For demonstration, let's assume the user inputs a search-friendly text or partial title.
-function getSearchTermFromYouTubeLink(link) {
-  // Very naive approach: user might have typed the exact song name in the link box
-  // You can enhance this using YouTube Data API or regex, etc.
-  return link
-}
-
-// 4. Search Spotify for the track
-function searchSpotifyTrack(query) {
-  const url = `https://api.spotify.com/v1/search?q=${encodeURIComponent(query)}&type=track&limit=1`
-  return fetch(url, {
-    headers: {
-      Authorization: `Bearer ${accessToken}`
-    }
-  })
-    .then(response => response.json())
-    .then(data => {
-      if (data.tracks.items.length > 0) {
-        return data.tracks.items[0] // Return the first match
-      } else {
-        throw new Error('No track found on Spotify for that query.')
-      }
-    })
-}
-
-// 5. Add track to a selected playlist
-function addTrackToPlaylist(trackId, playlistId) {
-  const url = `https://api.spotify.com/v1/playlists/${playlistId}/tracks?uris=spotify:track:${trackId}`
-  return fetch(url, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      'Content-Type': 'application/json'
-    }
-  }).then(response => {
-    if (!response.ok) {
-      throw new Error('Error adding track to playlist.')
-    }
-    return response.json()
-  })
-}
-
-// 6. Mark a track as favorite (Add to 'Liked Songs')
-function favoriteTrack(trackId) {
-  const url = 'https://api.spotify.com/v1/me/tracks'
-  return fetch(url, {
-    method: 'PUT',
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      ids: [trackId]
-    })
-  }).then(response => {
-    if (!response.ok) {
-      throw new Error('Error marking track as favorite.')
-    }
-    return response
-  })
-}
-
-// Event listeners for buttons
-addToPlaylistBtn.addEventListener('click', () => {
-  const youtubeLink = youtubeLinkInput.value.trim()
-  const selectedPlaylist = playlistsDropdown.value
-
-  if (!youtubeLink) {
-    alert('Please enter a YouTube link or search query.')
-    return
+/****************************
+ *  PKCE HELPER FUNCTIONS
+ ****************************/
+function generateRandomString(length) {
+  let text = ''
+  const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~'
+  for (let i = 0; i < length; i++) {
+    text += possible.charAt(Math.floor(Math.random() * possible.length))
   }
+  return text
+}
 
-  if (!selectedPlaylist) {
-    alert('Please select a playlist.')
-    return
-  }
+// base64-urlencode (RFC 4648 §5)
+function base64URLEncode(str) {
+  return btoa(String.fromCharCode.apply(null, new Uint8Array(str)))
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/, '')
+}
 
-  const searchTerm = getSearchTermFromYouTubeLink(youtubeLink)
+// SHA-256 hashing
+async function sha256(plain) {
+  const encoder = new TextEncoder()
+  const data = encoder.encode(plain)
+  return await crypto.subtle.digest('SHA-256', data)
+}
 
-  searchSpotifyTrack(searchTerm)
-    .then(track => {
-      return addTrackToPlaylist(track.id, selectedPlaylist).then(() => {
-        alert(`Song "${track.name}" added to playlist successfully.`)
-      })
-    })
-    .catch(err => alert(err.message))
-})
+/**
+ * generatePKCECodes - returns { codeVerifier, codeChallenge }
+ */
+async function generatePKCECodes() {
+  const codeVerifier = generateRandomString(64)
+  const hashed = await sha256(codeVerifier)
+  const codeChallenge = base64URLEncode(hashed)
+  return { codeVerifier, codeChallenge }
+}
 
-favoriteBtn.addEventListener('click', () => {
-  const youtubeLink = youtubeLinkInput.value.trim()
-  if (!youtubeLink) {
-    alert('Please enter a YouTube link or search query.')
-    return
-  }
+/****************************
+ *  MAIN EXTENSION LOGIC
+ ****************************/
 
-  const searchTerm = getSearchTermFromYouTubeLink(youtubeLink)
+// Replace this with your actual client ID and redirect URI
+const CLIENT_ID = 'YOUR_SPOTIFY_CLIENT_ID'
+const REDIRECT_URI = 'https://<your-username>.github.io/my-spotify-callback/callback.html'
+// or e.g. "https://myapp.vercel.app/callback.html"
 
-  searchSpotifyTrack(searchTerm)
-    .then(track => {
-      return favoriteTrack(track.id).then(() => {
-        alert(`Song "${track.name}" marked as favorite.`)
-      })
-    })
-    .catch(err => alert(err.message))
-})
-
-// Initialize on popup load
 document.addEventListener('DOMContentLoaded', () => {
-  checkAuthentication()
+  const loginBtn = document.getElementById('loginBtn')
+  const profileBtn = document.getElementById('profileBtn')
+  const profileResult = document.getElementById('profileResult')
+
+  loginBtn.addEventListener('click', () => {
+    // Step 1: Generate PKCE codeVerifier and codeChallenge
+    generatePKCECodes().then(({ codeVerifier, codeChallenge }) => {
+      // Step 2: Store the codeVerifier in chrome.storage for retrieval after redirect
+      chrome.storage.local.set({ spotify_code_verifier: codeVerifier }, () => {
+        console.log('Stored codeVerifier in chrome.storage.')
+
+        // Step 3: Build the Spotify /authorize URL
+        const state = generateRandomString(16) // optional, can store to verify
+        const scope = ['playlist-modify-public', 'playlist-modify-private', 'user-library-modify', 'user-library-read'].join(' ')
+
+        const authUrl = new URL('https://accounts.spotify.com/authorize')
+        authUrl.searchParams.append('client_id', CLIENT_ID)
+        authUrl.searchParams.append('response_type', 'code')
+        authUrl.searchParams.append('redirect_uri', REDIRECT_URI)
+        authUrl.searchParams.append('code_challenge_method', 'S256')
+        authUrl.searchParams.append('code_challenge', codeChallenge)
+        authUrl.searchParams.append('scope', scope)
+        authUrl.searchParams.append('state', state) // optional
+
+        // Step 4: Open the authUrl in a new window or tab
+        window.open(authUrl.toString(), 'SpotifyAuth', 'width=600,height=800')
+      })
+    })
+  })
+
+  // Listen for postMessage from callback.html
+  window.addEventListener('message', event => {
+    if (event.data?.type === 'SPOTIFY_TOKEN') {
+      const { access_token, refresh_token, expires_in } = event.data.data
+      console.log('Received tokens from callback page:', {
+        access_token,
+        refresh_token,
+        expires_in
+      })
+
+      // Step 5: Store tokens in chrome.storage
+      chrome.storage.local.set(
+        {
+          spotify_access_token: access_token,
+          spotify_refresh_token: refresh_token,
+          spotify_expires_in: expires_in,
+          spotify_obtained_at: Date.now()
+        },
+        () => {
+          alert('Spotify authentication succeeded! Access token stored.')
+        }
+      )
+    }
+  })
+
+  // Example: Use the stored token to get user profile from Spotify
+  profileBtn.addEventListener('click', () => {
+    chrome.storage.local.get(['spotify_access_token', 'spotify_refresh_token', 'spotify_expires_in', 'spotify_obtained_at'], items => {
+      const { spotify_access_token } = items
+      if (!spotify_access_token) {
+        profileResult.textContent = 'No access token found. Please log in first.'
+        return
+      }
+
+      // Example: Call https://api.spotify.com/v1/me
+      fetch('https://api.spotify.com/v1/me', {
+        headers: {
+          Authorization: `Bearer ${spotify_access_token}`
+        }
+      })
+        .then(res => {
+          if (!res.ok) throw new Error('Failed to fetch profile: ' + res.status)
+          return res.json()
+        })
+        .then(data => {
+          profileResult.textContent = `User Profile:\n${JSON.stringify(data, null, 2)}`
+        })
+        .catch(err => {
+          profileResult.textContent = `Error: ${err.message}`
+        })
+    })
+  })
 })

@@ -1,13 +1,10 @@
 {
-  "name": "YouTube to Spotify",
+  "name": "Spotify PKCE Demo",
   "version": "1.0",
-  "description": "Save YouTube songs directly to Spotify playlists and favorites.",
+  "description": "A Chrome extension that demonstrates Spotify Authorization Code Flow with PKCE.",
   "manifest_version": 3,
-  "permissions": ["storage", "activeTab", "scripting"],
+  "permissions": ["storage", "tabs"],
   "action": {
     "default_popup": "popup.html"
-  },
-  "background": {
-    "service_worker": "background.js"
   }
 }
